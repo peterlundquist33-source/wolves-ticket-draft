@@ -79,6 +79,10 @@ main { padding: 14px; max-width: 1100px; margin: 0 auto; }
 .order-list .name { font-weight: 800; font-size: 1.05rem; }
 .order-list .tag { margin-left: auto; font-size: .7rem; letter-spacing: .1em; color: var(--gray); }
 .order-list li.me { border-color: var(--green); box-shadow: inset 0 0 0 1px rgba(120,190,32,.5); }
+.order-list .move { display: flex; gap: 4px; margin-left: 6px; }
+.order-list .move button { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--line); background: rgba(255,255,255,.08); color: #fff; font-size: .8rem; cursor: pointer; }
+.order-list .move button:disabled { opacity: .3; cursor: default; }
+.order-list .move button:not(:disabled):hover { border-color: var(--green); }
 
 .who-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,.1); font-size: .85rem; font-weight: 600; border: 1px solid var(--line); }

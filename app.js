@@ -104,14 +104,16 @@
       var li = document.createElement("li");
       li.className = p === mi ? "me" : "";
       li.innerHTML = '<span class="num">' + (i + 1) + "</span>" + sw(p) + '<span class="name">' + esc(name(p)) + "</span>" +
-        '<span class="tag">' + (i === 0 ? "FIRST PICK" : i === state.order.length - 1 ? "SNAKE TURN" : "") + "</span>";
+        '<span class="tag">' + (i === 0 ? "FIRST PICK" : i === state.order.length - 1 ? "SNAKE TURN" : "") + "</span>" +
+        (state.started ? "" : '<span class="move"><button type="button" data-move="-1" data-i="' + i + '" aria-label="Move up"' + (i === 0 ? " disabled" : "") + '>▲</button>' +
+          '<button type="button" data-move="1" data-i="' + i + '" aria-label="Move down"' + (i === state.order.length - 1 ? " disabled" : "") + '>▼</button></span>');
       ol.appendChild(li);
     });
     $("lobby-who").innerHTML = state.participants.map(function (nm, i) {
       return '<span class="chip' + (i === mi ? " me" : "") + '">' + sw(i) + esc(nm) + "</span>";
     }).join("");
     var started = state.started;
-    $("edit-names").disabled = started; $("shuffle-btn").disabled = started; $("start-btn").disabled = started;
+    $("edit-names").disabled = started; $("shuffle-btn").disabled = started; $("start-btn").disabled = started; $("set-order-btn").disabled = started;
     $("start-btn").textContent = started ? (state.complete ? "Draft complete" : "Draft in progress") : "Start the draft";
     $("lobby-status").textContent = started
       ? (state.complete ? "All " + state.totalPairs + " seat-pairs are drafted. See the Season tab." : "Live. " + name(state.onClock) + " is on the clock.")
@@ -260,6 +262,23 @@
     saveLobby({ participants: names });
   });
   $("shuffle-btn").addEventListener("click", function () { saveLobby({ order: D.shuffle(4) }); });
+  // manual order: arrows on each row, or type it out
+  $("order-list").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-move]"); if (!b || state.started) return;
+    var i = +b.dataset.i, j = i + (+b.dataset.move), o = state.order.slice();
+    if (j < 0 || j >= o.length) return;
+    var t = o[i]; o[i] = o[j]; o[j] = t;
+    saveLobby({ order: o });
+  });
+  $("set-order-btn").addEventListener("click", function () {
+    var legend = state.participants.map(function (n, i) { return (i + 1) + " = " + n; }).join("\n");
+    var v = prompt("Type the pick order as numbers, first to last:\n" + legend + "\n\nExample: 3,1,4,2", state.order.map(function (p) { return p + 1; }).join(","));
+    if (v === null) return;
+    var o = v.split(/[^0-9]+/).filter(Boolean).map(function (x) { return +x - 1; });
+    var ok = o.length === 4 && o.slice().sort().join(",") === "0,1,2,3";
+    if (!ok) { alert("Need each of 1, 2, 3, 4 exactly once, like 3,1,4,2."); return; }
+    saveLobby({ order: o });
+  });
   $("start-btn").addEventListener("click", function () {
     if (state.participants.some(function (n) { return /^Person \d$/.test(n); }) && !confirm("Some names are still placeholders. Start anyway?")) return;
     if (confirm("Start the draft? Names and order lock once it starts.")) saveLobby({ started: true, startedAt: Date.now() });
