@@ -11,7 +11,10 @@ four phones at once. Built for the 2026-27 package: 20 home games, 4 seats each.
 - One pick = **2 seats** to one game. 40 picks total, 10 each.
 - Want all 4 seats to a game? Take "All 4 seats" on an open game. It uses this
   pick **and your next turn** (you sit out once), so it costs two picks.
-- A game closes once both seat-pairs are claimed. Draft ends when all 80 seats are gone.
+- Can't make many games? **Pass** on your turn: you give up one pair of seats for the season.
+- A game closes once both seat-pairs are claimed. The draft ends when every pair is
+  claimed or nobody has picks left; anything left over from passes is first come,
+  first served ("Claim" on the board).
 
 ## Stack
 

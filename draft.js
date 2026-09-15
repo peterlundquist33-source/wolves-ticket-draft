@@ -8,8 +8,10 @@
  *
  * Every game has 4 seats = 2 seat-pairs. One pick = one seat-pair. A 4-seat pick
  * takes both pairs at once and costs the picker their NEXT turn too ("spend 2 of
- * your own picks"). Turns run as a snake over the 4 participants until every
- * seat-pair in the package is claimed.
+ * your own picks"). A PASS ({pass:true}) gives up one of your seat-pairs for the
+ * season: your turn is used, your allotment shrinks by one. Turns run as a snake
+ * until every seat-pair is claimed or nobody has picks left. Whatever is left
+ * over after that is first-come: anyone can CLAIM ({claim:true}) a free pair.
  */
 (function (root) {
   "use strict";
@@ -40,8 +42,10 @@
     // marks the picker as owing a slot, which swallows their next turn.
     var owed = {}, slot = 0, log = [], slotsWalked = 0;
     participants.forEach(function (_, i) { owed[i] = 0; });
-    var pairsLeft = function (p) { return perPerson - pairsUsed[p]; };
-    var claimedPairs = 0;
+    var passes = {};
+    participants.forEach(function (_, i) { passes[i] = 0; });
+    var pairsLeft = function (p) { return perPerson - pairsUsed[p] - passes[p]; };
+    var claimedPairs = 0, claims_after = 0;
 
     function advanceToLiveSlot() {
       // skip slots for people who owe a turn or are out of pairs
@@ -58,8 +62,22 @@
     var pickNo = 0, valid = true;
     for (var i = 0; i < picks.length; i++) {
       var pk = picks[i];
+      if (pk.claim) {
+        // post-draft leftovers: no turn, just a free pair
+        claims_after++;
+        claims[pk.game] && claims[pk.game].push({ person: pk.person, seats: 2, pickNo: 0, claim: true });
+        claimedPairs += 1;
+        log.push({ type: "claim", person: pk.person, game: pk.game, seats: 2, ts: pk.ts });
+        continue;
+      }
       var onClock = order.length ? advanceToLiveSlot() : null;
       if (onClock !== pk.person) { valid = false; }
+      if (pk.pass) {
+        passes[pk.person]++;
+        log.push({ type: "pass", person: pk.person, ts: pk.ts, slot: slot });
+        slot++;
+        continue;
+      }
       var pairs = pk.seats === SEATS_PER_GAME ? 2 : 1;
       pickNo++;
       for (var j = 0; j < pairs; j++) claims[pk.game] && claims[pk.game].push({ person: pk.person, seats: 2, pickNo: pickNo });
@@ -70,8 +88,10 @@
       slot++;
     }
 
-    var complete = claimedPairs >= totalPairs;
+    var nobodyLeft = participants.length > 0 && participants.every(function (_, p) { return pairsLeft(p) <= 0; });
+    var complete = claimedPairs >= totalPairs || nobodyLeft;
     var onClock = (!complete && doc && doc.started && order.length) ? advanceToLiveSlot() : null;
+    if (onClock === null && !complete && doc && doc.started) complete = true;   // nobody can pick
     var round = order.length ? Math.floor(slot / order.length) + 1 : 0;
 
     // per-game status
@@ -98,7 +118,8 @@
     return {
       participants: participants, order: order, started: !!(doc && doc.started),
       picks: picks, log: log, board: board, mine: mine,
-      pairsUsed: pairsUsed, perPerson: perPerson, pairsLeft: participants.map(function (_, p) { return pairsLeft(p); }),
+      pairsUsed: pairsUsed, passes: passes, perPerson: perPerson, pairsLeft: participants.map(function (_, p) { return pairsLeft(p); }),
+      leftoverPairs: totalPairs - claimedPairs,
       onClock: onClock, round: round, pickNo: pickNo + 1, totalPicks: totalPairs,
       claimedPairs: claimedPairs, totalPairs: totalPairs, complete: complete, valid: valid
     };
@@ -118,6 +139,23 @@
     return null;
   }
 
+  /** Passing: allowed only on your turn. */
+  function validatePass(state, person) {
+    if (!state.started) return "The draft hasn't started.";
+    if (state.complete) return "The draft is over.";
+    if (state.onClock !== person) return "It's not your turn.";
+    return null;
+  }
+
+  /** Claiming a leftover pair after the draft: first come, first served. */
+  function validateClaim(state, person, gameId) {
+    if (!state.complete) return "Leftovers open up once the draft is over.";
+    var b = state.board.filter(function (x) { return x.game.id === gameId; })[0];
+    if (!b) return "Unknown game.";
+    if (b.pairsFree < 1) return "That game is full.";
+    return null;
+  }
+
   function shuffle(n, rand) {
     rand = rand || Math.random;
     var a = []; for (var i = 0; i < n; i++) a.push(i);
@@ -125,7 +163,7 @@
     return a;
   }
 
-  var api = { derive: derive, validatePick: validatePick, shuffle: shuffle, snakeSlot: snakeSlot,
+  var api = { derive: derive, validatePick: validatePick, validatePass: validatePass, validateClaim: validateClaim, shuffle: shuffle, snakeSlot: snakeSlot,
               SEATS_PER_GAME: SEATS_PER_GAME, PAIRS_PER_GAME: PAIRS_PER_GAME };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.WolvesDraft = api;

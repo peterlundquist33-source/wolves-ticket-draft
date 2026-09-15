@@ -56,6 +56,32 @@
     }).catch(function (e) { alert(e.message || "That pick didn't go through."); });
   }
 
+  function passTurn() {
+    var p = myIndex();
+    if (p === null) { openWho(); return; }
+    return db.runTransaction(function (tx) {
+      return tx.get(ref).then(function (snap) {
+        var d = snap.data(), s = D.derive(d, GAMES);
+        var why = D.validatePass(s, p);
+        if (why) throw new Error(why);
+        tx.update(ref, { picks: (d.picks || []).concat([{ pass: true, person: p, ts: Date.now() }]), updatedAt: Date.now() });
+      });
+    }).catch(function (e) { alert(e.message || "That didn't go through."); });
+  }
+
+  function claimLeftover(gameId) {
+    var p = myIndex();
+    if (p === null) { openWho(); return; }
+    return db.runTransaction(function (tx) {
+      return tx.get(ref).then(function (snap) {
+        var d = snap.data(), s = D.derive(d, GAMES);
+        var why = D.validateClaim(s, p, gameId);
+        if (why) throw new Error(why);
+        tx.update(ref, { picks: (d.picks || []).concat([{ claim: true, game: gameId, person: p, seats: 2, ts: Date.now() }]), updatedAt: Date.now() });
+      });
+    }).catch(function (e) { alert(e.message || "That didn't go through."); });
+  }
+
   function saveLobby(patch) { patch.updatedAt = Date.now(); return ref.update(patch).catch(function (e) { alert(e.message); }); }
 
   // ---------------------------------------------------------------- render
@@ -83,7 +109,7 @@
 
     // pick reveal for picks that arrived after we loaded
     var n = state.picks.length;
-    if (lastPickCount !== null && n > lastPickCount) {
+    if (lastPickCount !== null && n > lastPickCount && !state.picks[n - 1].pass && !state.picks[n - 1].claim) {
       var pk = state.picks[n - 1];
       showReveal(state.log.filter(function (l) { return l.type === "pick"; }).length, pk);
       var card = document.querySelector('.gcard[data-game="' + pk.game + '"]');
@@ -125,13 +151,17 @@
     if (!state.started) {
       banner.className = "turn-banner"; banner.innerHTML = '<span class="big">Waiting on the lobby.</span><span>Start the draft from the Lobby tab.</span>';
     } else if (state.complete) {
-      banner.className = "turn-banner"; banner.innerHTML = '<span class="big">That\'s the draft.</span><span>Every seat is spoken for. Check the Season tab.</span>';
+      banner.className = "turn-banner";
+      banner.innerHTML = state.leftoverPairs > 0
+        ? '<span class="big">DRAFT\'S DONE. ' + state.leftoverPairs + " PAIR" + (state.leftoverPairs === 1 ? "" : "S") + ' OF SEATS LEFT OVER.</span><span>Somebody passed, so these are first come, first served. Anyone can grab them below.</span>'
+        : '<span class="big">That\'s the draft.</span><span>Every seat is spoken for. Check the Season tab.</span>';
     } else {
       var oc = state.onClock, mine = oc === mi;
       banner.className = "turn-banner" + (mine ? " mine" : "");
       banner.innerHTML = '<span class="big">' + (mine ? "YOU'RE ON THE CLOCK" : esc(name(oc)).toUpperCase() + " IS ON THE CLOCK") + "</span>" +
         "<span>Round " + state.round + " · Pick " + state.pickNo + " of " + state.totalPicks + "</span>" +
-        '<span class="sp">' + (mi === null ? "Pick your name (top right) to draft." : name(mi) + ": " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " left") + "</span>";
+        '<span class="sp">' + (mi === null ? "Pick your name (top right) to draft." : name(mi) + ": " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " left") + "</span>" +
+        (mine ? '<button class="btn ghost pass-btn" id="pass-btn" type="button" title="Give up this pick. You end the season with one fewer pair of seats.">Pass this pick</button>' : "");
     }
 
     var hideFull = $("hide-full").checked;
@@ -153,7 +183,8 @@
         (canPick && b.status !== "full" ? '<div class="g-actions">' +
           '<button class="btn primary" data-pick="2" ' + (can2 ? "" : "disabled") + ">Draft 2 seats</button>" +
           (b.status === "open" ? '<button class="btn ghost" data-pick="4" ' + (can4 ? "" : "disabled") + ' title="Uses this pick and your next one">All 4 seats</button>' : "") +
-          "</div>" : "");
+          "</div>" : "") +
+        (state.complete && b.status !== "full" ? '<div class="g-actions"><button class="btn primary" data-claim="1">Claim 2 leftover seats</button></div>' : "");
       grid.appendChild(card);
     });
 
@@ -161,6 +192,8 @@
     state.log.slice().reverse().forEach(function (l) {
       var li = document.createElement("li");
       if (l.type === "skip") { li.className = "skip"; li.innerHTML = '<span class="n">–</span><span>' + esc(name(l.person)) + " sits this turn (" + esc(l.reason) + ")</span><span></span>"; }
+      else if (l.type === "pass") { li.className = "skip"; li.innerHTML = '<span class="n">–</span><span>' + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> passes, one fewer pair of seats for them this season</span><time>" + fmtTime(l.ts) + "</time>"; }
+      else if (l.type === "claim") { var cg = gameById[l.game]; li.innerHTML = '<span class="n">+</span><span>' + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> claims leftover seats to <b>" + esc(cg ? cg.abbr + " · " + fmtDate(cg.date) : l.game) + "</b> (2 seats)</span><time>" + fmtTime(l.ts) + "</time>"; }
       else { var g = gameById[l.game]; li.innerHTML = '<span class="n">#' + l.pickNo + "</span><span>" + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> takes <b>" + esc(g ? g.abbr + " · " + fmtDate(g.date) : l.game) + "</b> (" + l.seats + " seats)</span><time>" + fmtTime(l.ts) + "</time>"; }
       log.appendChild(li);
     });
@@ -187,7 +220,7 @@
       var used = state.pairsUsed[i], pct = state.perPerson ? Math.round(100 * used / state.perPerson) : 0;
       var g = state.mine[i] || [];
       var h = document.createElement("div"); h.className = "h";
-      h.innerHTML = "<b>" + sw(i) + " " + esc(nm) + '</b><div class="bar"><i style="width:' + pct + '%;background:' + COLORS[i % 4] + '"></i></div><small>' + g.length + " games · " + used * 2 + " seats · " + (state.perPerson - used) + " picks left</small>";
+      h.innerHTML = "<b>" + sw(i) + " " + esc(nm) + '</b><div class="bar"><i style="width:' + pct + '%;background:' + COLORS[i % 4] + '"></i></div><small>' + g.length + " games · " + used * 2 + " seats · " + Math.max(0, state.pairsLeft[i]) + " picks left" + (state.passes[i] ? " · passed " + state.passes[i] : "") + "</small>";
       haul.appendChild(h);
     });
   }
@@ -254,6 +287,17 @@
     var gameId = b.closest(".gcard").dataset.game, seats = +b.dataset.pick, g = gameById[gameId];
     var msg = seats === 4 ? "Take ALL 4 seats to " + g.opp + " on " + fmtDate(g.date) + "? This uses this pick and your next one." : "Draft 2 seats to " + g.opp + " on " + fmtDate(g.date) + "?";
     if (confirm(msg)) makePick(gameId, seats);
+  });
+  $("grid").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-claim]"); if (!b) return;
+    var gameId = b.closest(".gcard").dataset.game, g = gameById[gameId];
+    if (confirm("Claim 2 leftover seats to " + g.opp + " on " + fmtDate(g.date) + "?")) claimLeftover(gameId);
+  });
+  $("turn-banner").addEventListener("click", function (e) {
+    if (!e.target.closest("#pass-btn")) return;
+    var mi = myIndex(); if (mi === null) return;
+    var left = state.pairsLeft[mi];
+    if (confirm("Pass this pick? You give up one pair of seats for the season: " + (left - 1) + " pick" + (left - 1 === 1 ? "" : "s") + " left instead of " + left + ". Whatever's unclaimed at the end is first come, first served.")) passTurn();
   });
   $("hide-full").addEventListener("change", function () { render(); });
 
