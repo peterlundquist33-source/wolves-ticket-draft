@@ -23,6 +23,10 @@
   } catch (e) { db = null; }
 
   function myIndex() { return me === null || me === "" ? null : +me; }
+  // Commissioner mode: this phone drafts as whoever is on the clock (for testing,
+  // or running the draft for someone who can't be there).
+  var commish = localStorage.getItem("wolves-draft-commish") === "1";
+  function actorIndex() { return commish && state && state.started && !state.complete && state.onClock !== null ? state.onClock : myIndex(); }
   function name(i) { return (state && state.participants[i]) || DEFAULT_NAMES[i] || "?"; }
   function sw(i) { return '<span class="sw" style="background:' + COLORS[i % 4] + '"></span>'; }
 
@@ -43,7 +47,7 @@
   }
 
   function makePick(gameId, seats) {
-    var p = myIndex();
+    var p = actorIndex();
     if (p === null) { openWho(); return; }
     return db.runTransaction(function (tx) {
       return tx.get(ref).then(function (snap) {
@@ -58,7 +62,7 @@
   }
 
   function passTurn() {
-    var p = myIndex();
+    var p = actorIndex();
     if (p === null) { openWho(); return; }
     return db.runTransaction(function (tx) {
       return tx.get(ref).then(function (snap) {
@@ -98,7 +102,7 @@
     $("sb-pick").textContent = state.started ? (state.complete ? "done" : state.pickNo + "/" + state.totalPicks) : "–";
     $("sb-clock").textContent = state.complete ? "Draft over" : state.started && state.onClock !== null ? name(state.onClock) : "Not started";
     $("sb-mid").querySelector(".sb-clock").classList.toggle("blink", state.started && !state.complete && state.onClock === mi);
-    $("who-name").textContent = mi === null ? "pick a name" : name(mi);
+    $("who-name").textContent = (mi === null ? "pick a name" : name(mi)) + (commish ? " · COMMISH" : "");
     var boardTab = document.querySelector('.tabs [data-view="board"]');
     boardTab.innerHTML = "Draft Board" + (state.started && !state.complete && state.onClock === mi ? '<span class="dot"></span>' : "");
 
@@ -158,9 +162,9 @@
         ? '<span class="big">DRAFT\'S DONE. ' + state.leftoverPairs + " PAIR" + (state.leftoverPairs === 1 ? "" : "S") + ' OF SEATS LEFT OVER.</span><span>Somebody passed, so these are first come, first served. Anyone can grab them below.</span>'
         : '<span class="big">That\'s the draft.</span><span>Every seat is spoken for. Check the Season tab.</span>';
     } else {
-      var oc = state.onClock, mine = oc === mi;
+      var oc = state.onClock, mine = oc === mi || (commish && oc !== null);
       banner.className = "turn-banner" + (mine ? " mine" : "");
-      banner.innerHTML = '<span class="big">' + (mine ? "YOU'RE ON THE CLOCK" : esc(name(oc)).toUpperCase() + " IS ON THE CLOCK") + "</span>" +
+      banner.innerHTML = '<span class="big">' + (oc === mi ? "YOU'RE ON THE CLOCK" : esc(name(oc)).toUpperCase() + " IS ON THE CLOCK" + (commish ? " (commissioner: you're picking for them)" : "")) + "</span>" +
         "<span>Round " + state.round + " · Pick " + state.pickNo + " of " + state.totalPicks + "</span>" +
         '<span class="sp">' + (mi === null ? "Pick your name (top right) to draft." : name(mi) + ": " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " left") + "</span>" +
         (mine ? '<button class="btn ghost pass-btn" id="pass-btn" type="button" title="Give up this pick. You end the season with one fewer pair of seats.">Pass this pick</button>' : "");
@@ -170,8 +174,9 @@
     var grid = $("grid"); grid.innerHTML = "";
     state.board.forEach(function (b) {
       if (hideFull && b.status === "full") return;
-      var g = b.game, canPick = state.started && !state.complete && state.onClock === mi;
-      var can2 = canPick && !D.validatePick(state, mi, g.id, 2);
+      var ai = actorIndex();
+      var g = b.game, canPick = state.started && !state.complete && state.onClock === ai && ai !== null;
+      var can2 = canPick && !D.validatePick(state, ai, g.id, 2);
       var card = document.createElement("article");
       card.className = "gcard " + b.status + (can2 ? " pickable" : "");
       card.dataset.game = g.id;
@@ -183,7 +188,7 @@
         (b.price !== null ? '<div class="g-price">' + money(b.price) + " per seat · " + money(b.price * 2) + " for the pair</div>" : (state.hasPrices ? '<div class="g-price muted">price TBD</div>' : "")) +
         '<div class="g-owners">' + b.owners.map(function (o) { return '<span class="chip">' + sw(o.person) + esc(name(o.person)) + " · " + o.seats + " seats</span>"; }).join("") + "</div>" +
         (canPick && b.status !== "full" ? '<div class="g-actions">' +
-          '<button class="btn primary" data-pick="2" ' + (can2 ? "" : "disabled") + ">" + (b.owners.some(function (o) { return o.person === mi; }) ? "Take the other 2 seats" : "Draft 2 seats") + "</button>" +
+          '<button class="btn primary" data-pick="2" ' + (can2 ? "" : "disabled") + ">" + (b.owners.some(function (o) { return o.person === ai; }) ? "Take the other 2 seats" : "Draft 2 seats") + (commish && ai !== mi ? " as " + esc(name(ai)) : "") + "</button>" +
           "</div>" : "") +
         (state.complete && b.status !== "full" ? '<div class="g-actions"><button class="btn primary" data-claim="1">Claim 2 leftover seats</button></div>' : "");
       grid.appendChild(card);
@@ -300,9 +305,9 @@
   });
   $("turn-banner").addEventListener("click", function (e) {
     if (!e.target.closest("#pass-btn")) return;
-    var mi = myIndex(); if (mi === null) return;
-    var left = state.pairsLeft[mi];
-    if (confirm("Pass this pick? You give up one pair of seats for the season: " + (left - 1) + " pick" + (left - 1 === 1 ? "" : "s") + " left instead of " + left + ". Whatever's unclaimed at the end is first come, first served.")) passTurn();
+    var ai = actorIndex(); if (ai === null) return;
+    var left = state.pairsLeft[ai];
+    if (confirm((ai === myIndex() ? "Pass this pick? You give up" : "Pass for " + name(ai) + "? They give up") + " one pair of seats for the season: " + (left - 1) + " pick" + (left - 1 === 1 ? "" : "s") + " left instead of " + left + ". Whatever's unclaimed at the end is first come, first served.")) passTurn();
   });
   $("hide-full").addEventListener("change", function () { render(); });
 
@@ -347,6 +352,10 @@
   $("fill-prices").addEventListener("click", function () {
     var v = prompt("Set every empty price to (per seat):", ""); if (v === null) return; var n = parseFloat(v); if (isNaN(n) || n < 0) return;
     document.querySelectorAll("[data-price]").forEach(function (inp) { if (inp.value === "") inp.value = n; });
+  });
+  $("commish-toggle").checked = commish;
+  $("commish-toggle").addEventListener("change", function () {
+    commish = $("commish-toggle").checked; localStorage.setItem("wolves-draft-commish", commish ? "1" : "0"); render();
   });
   $("reset-btn").addEventListener("click", function () {
     if (prompt('This wipes every pick for everyone. Type RESET to confirm.') !== "RESET") return;
