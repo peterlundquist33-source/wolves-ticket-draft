@@ -216,3 +216,5 @@ table.season td.d { font-family: var(--display); font-size: 1.1rem; letter-spaci
 .pg-cell.empty { border-style: dashed; opacity: .5; }
 .games-h { margin: 6px 0 8px; }
 @media (max-width: 640px) { .pg { min-width: 520px; } .pg-cell.pick b { font-size: 1.15rem; } }
+.pg-round.extra b { color: #ffd76a; }
+.pg-cell.pass.free { background: rgba(158,162,162,.12); border-color: rgba(158,162,162,.35); color: var(--gray); }

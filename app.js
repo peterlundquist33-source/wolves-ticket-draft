@@ -159,15 +159,15 @@
     } else if (state.complete) {
       banner.className = "turn-banner";
       banner.innerHTML = state.leftoverPairs > 0
-        ? '<span class="big">DRAFT\'S DONE. ' + state.leftoverPairs + " PAIR" + (state.leftoverPairs === 1 ? "" : "S") + ' OF SEATS LEFT OVER.</span><span>Somebody passed, so these are first come, first served. Anyone can grab them below.</span>'
+        ? '<span class="big">DRAFT\'S DONE. ' + state.leftoverPairs + " PAIR" + (state.leftoverPairs === 1 ? "" : "S") + ' OF SEATS STILL OPEN.</span><span>Everyone passed on them, so they\'re first come, first served now. Anyone can grab them below.</span>'
         : '<span class="big">That\'s the draft.</span><span>Every seat is spoken for. Check the Season tab.</span>';
     } else {
       var oc = state.onClock, mine = oc === mi || (commish && oc !== null);
       banner.className = "turn-banner" + (mine ? " mine" : "");
       banner.innerHTML = '<span class="big">' + (oc === mi ? "YOU'RE ON THE CLOCK" : esc(name(oc)).toUpperCase() + " IS ON THE CLOCK" + (commish ? " (commissioner: you're picking for them)" : "")) + "</span>" +
-        "<span>Round " + state.round + " · Pick " + state.pickNo + " of " + state.totalPicks + "</span>" +
-        '<span class="sp">' + (mi === null ? "Pick your name (top right) to draft." : name(mi) + ": " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " left") + "</span>" +
-        (mine ? '<button class="btn ghost pass-btn" id="pass-btn" type="button" title="Give up this pick. You end the season with one fewer pair of seats.">Pass this pick</button>' : "");
+        "<span>" + (state.phase === "extra" ? "Extra round " + state.extraRound + " · " + state.leftoverPairs + " pair" + (state.leftoverPairs === 1 ? "" : "s") + " still open" : "Round " + state.round + " · Pick " + state.pickNo + " of " + state.totalPicks) + "</span>" +
+        '<span class="sp">' + (mi === null ? "Pick your name (top right) to draft." : state.phase === "extra" ? name(mi) + ": take an extra pair or pass, no cost" : name(mi) + ": " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " left") + "</span>" +
+        (mine ? '<button class="btn ghost pass-btn" id="pass-btn" type="button" title="' + (state.phase === "extra" ? "Skip this extra pick. No cost." : "Give up this pick. You end the season with one fewer pair of seats.") + '">Pass' + (state.phase === "extra" ? "" : " this pick") + "</button>" : "");
     }
 
     renderPickGrid(mi);
@@ -199,7 +199,7 @@
     state.log.slice().reverse().forEach(function (l) {
       var li = document.createElement("li");
       if (l.type === "skip") { li.className = "skip"; li.innerHTML = '<span class="n">–</span><span>' + esc(name(l.person)) + " sits this turn (" + esc(l.reason) + ")</span><span></span>"; }
-      else if (l.type === "pass") { li.className = "skip"; li.innerHTML = '<span class="n">–</span><span>' + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> passes, one fewer pair of seats for them this season</span><time>" + fmtTime(l.ts) + "</time>"; }
+      else if (l.type === "pass") { li.className = "skip"; li.innerHTML = '<span class="n">–</span><span>' + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> passes" + (l.extra ? " (extra round, no cost)" : ", one fewer pair of seats for them this season") + "</span><time>" + fmtTime(l.ts) + "</time>"; }
       else if (l.type === "claim") { var cg = gameById[l.game]; li.innerHTML = '<span class="n">+</span><span>' + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> claims leftover seats to <b>" + esc(cg ? cg.abbr + " · " + fmtDate(cg.date) : l.game) + "</b> (2 seats)</span><time>" + fmtTime(l.ts) + "</time>"; }
       else { var g = gameById[l.game]; li.innerHTML = '<span class="n">#' + l.pickNo + "</span><span>" + sw(l.person) + "<b>" + esc(name(l.person)) + "</b> takes <b>" + esc(g ? g.abbr + " · " + fmtDate(g.date) : l.game) + "</b> (" + l.seats + " seats)</span><time>" + fmtTime(l.ts) + "</time>"; }
       log.appendChild(li);
@@ -214,22 +214,23 @@
     var order = state.order, k = order.length; if (!k) { wrap.innerHTML = ""; return; }
     var bySlot = {};
     state.log.forEach(function (l) { if (l.slot !== undefined) bySlot[l.slot] = l; });
-    var rounds = Math.max(Math.ceil(state.totalPicks / k), Math.ceil((state.currentSlot + 1) / k));
-    if (state.complete) rounds = Math.ceil(state.currentSlot / k);
+    var regular = state.regularRounds;
+    var rounds = Math.max(regular, Math.ceil((state.currentSlot + 1) / k));
+    if (state.complete) rounds = Math.max(regular, Math.ceil(state.currentSlot / k));
     var html = '<div class="pg" style="grid-template-columns: 44px repeat(' + k + ', minmax(84px, 1fr))">';
     html += '<div class="pg-corner"></div>';
     order.forEach(function (p) {
-      html += '<div class="pg-head' + (p === mi ? " me" : "") + '" style="--c:' + COLORS[p % 4] + '">' + sw(p) + '<b>' + esc(name(p)) + "</b><small>" + Math.max(0, state.pairsLeft[p]) + " left" + (state.hasPrices ? " · " + money(state.due[p]) : "") + "</small></div>";
+      html += '<div class="pg-head' + (p === mi ? " me" : "") + '" style="--c:' + COLORS[p % 4] + '">' + sw(p) + '<b>' + esc(name(p)) + "</b><small>" + (state.phase === "extra" || state.complete ? (state.mine[p] || []).length + " games" : Math.max(0, state.pairsLeft[p]) + " left") + (state.hasPrices ? " · " + money(state.due[p]) : "") + "</small></div>";
     });
     for (var r = 0; r < rounds; r++) {
-      html += '<div class="pg-round"><b>' + (r + 1) + "</b><small>" + (r % 2 === 0 ? "→" : "←") + "</small></div>";
+      html += '<div class="pg-round' + (r >= regular ? " extra" : "") + '"><b>' + (r >= regular ? "X" + (r - regular + 1) : r + 1) + "</b><small>" + (r % 2 === 0 ? "→" : "←") + "</small></div>";
       order.forEach(function (p, col) {
         var pos = r % 2 === 0 ? col : k - 1 - col;      // where this column's slot falls in the snake this round
         var slot = r * k + pos, l = bySlot[slot], cls = "pg-cell", inner = "";
         if (l && l.type === "pick") {
           var g = gameById[l.game];
           cls += " pick"; inner = '<span class="no">' + l.pickNo + '</span><b>' + esc(g ? g.abbr : l.game) + "</b><small>" + (g ? fmtDate(g.date).replace(/^\w+, /, "") : "") + "</small>" + (state.hasPrices && g ? '<em>' + money((state.prices[g.id] || 0) * 2) + "</em>" : "");
-        } else if (l && l.type === "pass") { cls += " pass"; inner = "<b>PASS</b>"; }
+        } else if (l && l.type === "pass") { cls += " pass" + (l.extra ? " free" : ""); inner = "<b>PASS</b>"; }
         else if (l && l.type === "skip") { cls += " skip"; inner = "<small>used</small>"; }
         else if (l && l.type === "out") { cls += " skip"; inner = "<small>out</small>"; }
         else if (!state.complete && state.started && slot === state.currentSlot) { cls += " live"; inner = "<b>ON THE CLOCK</b>"; }
@@ -343,7 +344,10 @@
     if (!e.target.closest("#pass-btn")) return;
     var ai = actorIndex(); if (ai === null) return;
     var left = state.pairsLeft[ai];
-    if (confirm((ai === myIndex() ? "Pass this pick? You give up" : "Pass for " + name(ai) + "? They give up") + " one pair of seats for the season: " + (left - 1) + " pick" + (left - 1 === 1 ? "" : "s") + " left instead of " + left + ". Whatever's unclaimed at the end is first come, first served.")) passTurn();
+    var msg = state.phase === "extra"
+      ? (ai === myIndex() ? "Pass on this extra pick? No cost." : "Pass for " + name(ai) + " on this extra pick? No cost.") + " If all four pass in a row, the draft ends and any open seats are first come, first served."
+      : (ai === myIndex() ? "Pass this pick? You give up" : "Pass for " + name(ai) + "? They give up") + " one pair of seats for the season: " + (left - 1) + " pick" + (left - 1 === 1 ? "" : "s") + " left instead of " + left + ". Open seats get offered again in extra rounds after round " + state.regularRounds + ".";
+    if (confirm(msg)) passTurn();
   });
   $("hide-full").addEventListener("change", function () { render(); });
 

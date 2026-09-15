@@ -50,32 +50,55 @@ test('guards', () => {
   assert.strictEqual(D.validatePick(half, 1, 'g0', 2), null);
 });
 
-test('passing shrinks your allotment; leftovers are claimable after the draft', () => {
+test('passing shrinks your allotment; extra rounds follow with free passes', () => {
   const doc = { participants: P, order: [0,1,2,3], started: true, picks: [] };
   let s = D.derive(doc, games);
-  assert.strictEqual(D.validatePass(s, 1, ), "It's not your turn.");
+  assert.strictEqual(D.validatePass(s, 1), "It's not your turn.");
   assert.strictEqual(D.validatePass(s, 0), null);
   doc.picks.push({ pass: true, person: 0, ts: 1 });           // Peter passes round 1
   s = D.derive(doc, games);
   assert.strictEqual(s.onClock, 1);
   assert.strictEqual(s.pairsLeft[0], 9);
   assert.strictEqual(s.log[0].type, 'pass');
-  // run the rest with 2-seat picks
   let n = 1;
-  while (!s.complete) {
+  while (s.phase === 'regular' && !s.complete) {
     const p = s.onClock;
     const b = s.board.find(b => b.pairsFree > 0 && !b.owners.some(o => o.person === p));
     doc.picks.push({ game: b.game.id, person: p, seats: 2, ts: n++ });
     s = D.derive(doc, games);
   }
-  assert.ok(s.complete);
+  // regular rounds are over but one pair is open -> extra round, everyone live, passes free
+  assert.ok(!s.complete);
+  assert.strictEqual(s.phase, 'extra');
+  assert.strictEqual(s.extraRound, 1);
   assert.strictEqual(s.leftoverPairs, 1);
   assert.deepStrictEqual(s.pairsLeft, [0,0,0,0]);
-  const open = s.board.find(b => b.pairsFree > 0);
-  assert.strictEqual(D.validateClaim(s, 2, open.game.id), null);
-  doc.picks.push({ claim: true, game: open.game.id, person: 2, seats: 2, ts: n });
+  assert.strictEqual(s.onClock, 0);   // round 10 ran backwards, so round 11 goes forward again
+  assert.strictEqual(D.validatePass(s, 0), null);
+  doc.picks.push({ pass: true, person: 0, ts: n++ });
   s = D.derive(doc, games);
-  assert.strictEqual(s.leftoverPairs, 0);
-  assert.ok(s.valid);
-  assert.strictEqual(D.validateClaim(s, 3, open.game.id), 'That game is full.');
+  assert.strictEqual(s.passes[0], 1, 'extra-round pass is free (still just the one regular pass)');
+  assert.strictEqual(s.onClock, 1);
+  const open = s.board.find(b => b.pairsFree > 0);
+  assert.strictEqual(D.validatePick(s, 1, open.game.id, 2), null, 'no allotment check in extras');
+  doc.picks.push({ game: open.game.id, person: 1, seats: 2, ts: n++ });
+  s = D.derive(doc, games);
+  assert.ok(s.complete); assert.strictEqual(s.leftoverPairs, 0); assert.ok(s.valid);
+  assert.strictEqual(s.mine[1].length, 11);
+});
+
+test('extra rounds end when everyone passes in a row; leftovers then claimable', () => {
+  const doc = { participants: P, order: [0,1,2,3], started: true, picks: [] };
+  let s = D.derive(doc, games), n = 0;
+  while (s.phase === 'regular' && !s.complete) {
+    const p = s.onClock;
+    if ((p === 0 || p === 1) && s.passes[p] === 0) { doc.picks.push({ pass: true, person: p, ts: n++ }); }
+    else { const b = s.board.find(b => b.pairsFree > 0 && !b.owners.some(o => o.person === p)); doc.picks.push({ game: b.game.id, person: p, seats: 2, ts: n++ }); }
+    s = D.derive(doc, games);
+  }
+  assert.strictEqual(s.phase, 'extra'); assert.strictEqual(s.leftoverPairs, 2);
+  for (let i = 0; i < 4; i++) { doc.picks.push({ pass: true, person: s.onClock, ts: n++ }); s = D.derive(doc, games); }
+  assert.ok(s.complete, 'four passes in a row ends it');
+  assert.strictEqual(s.leftoverPairs, 2);
+  assert.strictEqual(D.validateClaim(s, 0, s.board.find(b => b.pairsFree > 0).game.id), null);
 });

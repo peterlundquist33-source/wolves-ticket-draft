@@ -9,10 +9,12 @@
  * Every game has 4 seats = 2 seat-pairs. One pick = one seat-pair, 2 seats at a
  * time; you can take a game's second pair on a later turn if it's still free.
  * (The engine still understands legacy seats:4 picks, which cost the next turn.)
- * Optional doc.prices = { gameId: pricePerSeat } drives what everyone owes. A PASS ({pass:true}) gives up one of your seat-pairs for the
- * season: your turn is used, your allotment shrinks by one. Turns run as a snake
- * until every seat-pair is claimed or nobody has picks left. Whatever is left
- * over after that is first-come: anyone can CLAIM ({claim:true}) a free pair.
+ * Optional doc.prices = { gameId: pricePerSeat } drives what everyone owes. A PASS
+ * ({pass:true}) in a regular round gives up one of your seat-pairs for the season.
+ * Regular rounds = totalPairs / participants (10). If seats are still open after
+ * that, EXTRA rounds keep the snake going with everyone eligible and free passes,
+ * until every seat is claimed or all four pass in a row. Anything still open then
+ * is first-come: anyone can CLAIM ({claim:true}) a free pair.
  */
 (function (root) {
   "use strict";
@@ -48,13 +50,18 @@
     var pairsLeft = function (p) { return perPerson - pairsUsed[p] - passes[p]; };
     var claimedPairs = 0, claims_after = 0;
 
+    var k = order.length, regularSlots = perPerson * k;
+    var isExtra = function (sl) { return sl >= regularSlots; };
+    var recent = [];   // last few slot-consuming actions: "pick" | "pass"
+
     function advanceToLiveSlot() {
-      // skip slots for people who owe a turn or are out of pairs
+      // regular rounds: skip people who owe a turn or are out of pairs.
+      // extra rounds: everyone is live every time.
       var guard = 0;
       while (guard++ < 1000) {
         var p = snakeSlot(order, slot);
         if (owed[p] > 0) { owed[p]--; log.push({ type: "skip", person: p, slot: slot, reason: "used on a 4-seat pick" }); slot++; continue; }
-        if (pairsLeft(p) <= 0) { log.push({ type: "out", person: p, slot: slot }); slot++; continue; }
+        if (!isExtra(slot) && pairsLeft(p) <= 0) { log.push({ type: "out", person: p, slot: slot }); slot++; continue; }
         return p;
       }
       return null;
@@ -74,11 +81,13 @@
       var onClock = order.length ? advanceToLiveSlot() : null;
       if (onClock !== pk.person) { valid = false; }
       if (pk.pass) {
-        passes[pk.person]++;
-        log.push({ type: "pass", person: pk.person, ts: pk.ts, slot: slot });
-        slot++;
+        var extraPass = isExtra(slot);
+        if (!extraPass) passes[pk.person]++;
+        log.push({ type: "pass", person: pk.person, ts: pk.ts, slot: slot, extra: extraPass });
+        recent.push("pass"); slot++;
         continue;
       }
+      recent.push("pick");
       var pairs = pk.seats === SEATS_PER_GAME ? 2 : 1;
       pickNo++;
       for (var j = 0; j < pairs; j++) claims[pk.game] && claims[pk.game].push({ person: pk.person, seats: 2, pickNo: pickNo });
@@ -89,11 +98,14 @@
       slot++;
     }
 
-    var nobodyLeft = participants.length > 0 && participants.every(function (_, p) { return pairsLeft(p) <= 0; });
-    var complete = claimedPairs >= totalPairs || nobodyLeft;
+    // done when every pair is claimed, or (in extra rounds) when everyone passed in a row
+    var allPassed = k > 0 && isExtra(slot) && recent.length >= k && recent.slice(-k).every(function (x) { return x === "pass"; });
+    var complete = claimedPairs >= totalPairs || allPassed;
     var onClock = (!complete && doc && doc.started && order.length) ? advanceToLiveSlot() : null;
     if (onClock === null && !complete && doc && doc.started) complete = true;   // nobody can pick
-    var round = order.length ? Math.floor(slot / order.length) + 1 : 0;
+    var round = k ? Math.floor(slot / k) + 1 : 0;
+    var phase = k && isExtra(slot) ? "extra" : "regular";
+    var extraRound = phase === "extra" ? round - perPerson : 0;
 
     // per-game status
     var board = games.map(function (g) {
@@ -128,6 +140,7 @@
       pairsUsed: pairsUsed, passes: passes, perPerson: perPerson, pairsLeft: participants.map(function (_, p) { return pairsLeft(p); }),
       leftoverPairs: totalPairs - claimedPairs,
       onClock: onClock, round: round, pickNo: pickNo + 1, totalPicks: totalPairs, currentSlot: slot,
+      phase: phase, extraRound: extraRound, regularRounds: perPerson, regularSlots: regularSlots,
       claimedPairs: claimedPairs, totalPairs: totalPairs, complete: complete, valid: valid
     };
   }
@@ -141,7 +154,7 @@
     if (!b) return "Unknown game.";
     var pairs = seats === SEATS_PER_GAME ? 2 : 1;
     if (b.pairsFree < pairs) return pairs === 2 ? "Both seat-pairs aren't free for that game." : "That game is fully drafted.";
-    if (state.pairsLeft[person] < pairs) return "You don't have enough picks left for that.";
+    if (state.phase === "regular" && state.pairsLeft[person] < pairs) return "You don't have enough picks left for that.";
     return null;
   }
 

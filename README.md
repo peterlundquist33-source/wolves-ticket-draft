@@ -13,9 +13,10 @@ four phones at once. Built for the 2026-27 package: 20 home games, 4 seats each.
 - Ticket prices (per seat) are optional, set under Commissioner tools in the Lobby.
   Once set, cards show the price, My Games shows what you owe, Season shows totals.
 - Can't make many games? **Pass** on your turn: you give up one pair of seats for the season.
-- A game closes once both seat-pairs are claimed. The draft ends when every pair is
-  claimed or nobody has picks left; anything left over from passes is first come,
-  first served ("Claim" on the board).
+- A game closes once both seat-pairs are claimed. After the 10 regular rounds, if
+  seats are still open, **extra rounds** keep the snake going (everyone eligible,
+  passes free) until every seat is taken or all four pass in a row. Anything still
+  open after that is first come, first served ("Claim" on the board).
 
 ## Stack
 
