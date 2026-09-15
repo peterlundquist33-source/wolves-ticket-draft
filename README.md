@@ -20,7 +20,7 @@ Pages plus **Firebase Firestore** (project `rizzlers-pickems`) for real-time sta
 No accounts; each person picks their name on their phone.
 
 - `index.html`, `styles.css`, `app.js` — the UI. Firebase compat SDK from CDN.
-- `draft.js` — the rules engine (pure functions, no DOM). `node --test test/` runs its tests.
+- `draft.js` — the rules engine (pure functions, no DOM). `node --test test/draft.test.js` runs its tests.
 - `games.js` — the game pool (the package schedule).
 - `firestore.rules` — shape/size limits on the `wolvesdraft` collection.
 
