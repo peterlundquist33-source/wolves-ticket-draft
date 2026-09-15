@@ -3,7 +3,7 @@
   "use strict";
   var D = window.WolvesDraft, GAMES = window.WOLVES_GAMES;
   var DRAFT_PATH = "wolvesdraft/family-2026-27";
-  var DEFAULT_NAMES = ["Person 1", "Person 2", "Person 3", "Person 4"];
+  var DEFAULT_NAMES = ["Erik & Sue", "Peter & Nicole", "John & Rachel", "Anna & Duncan"];
   var COLORS = ["#78BE20", "#4fa3e0", "#ffd76a", "#ff8a65"];
 
   var $ = function (id) { return document.getElementById(id); };
