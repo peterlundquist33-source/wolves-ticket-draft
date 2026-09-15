@@ -54,7 +54,7 @@
       while (guard++ < 1000) {
         var p = snakeSlot(order, slot);
         if (owed[p] > 0) { owed[p]--; log.push({ type: "skip", person: p, slot: slot, reason: "used on a 4-seat pick" }); slot++; continue; }
-        if (pairsLeft(p) <= 0) { slot++; continue; }
+        if (pairsLeft(p) <= 0) { log.push({ type: "out", person: p, slot: slot }); slot++; continue; }
         return p;
       }
       return null;
@@ -127,7 +127,7 @@
       picks: picks, log: log, board: board, mine: mine, due: due, prices: prices, hasPrices: hasPrices,
       pairsUsed: pairsUsed, passes: passes, perPerson: perPerson, pairsLeft: participants.map(function (_, p) { return pairsLeft(p); }),
       leftoverPairs: totalPairs - claimedPairs,
-      onClock: onClock, round: round, pickNo: pickNo + 1, totalPicks: totalPairs,
+      onClock: onClock, round: round, pickNo: pickNo + 1, totalPicks: totalPairs, currentSlot: slot,
       claimedPairs: claimedPairs, totalPairs: totalPairs, complete: complete, valid: valid
     };
   }

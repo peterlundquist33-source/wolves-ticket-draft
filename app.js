@@ -170,6 +170,7 @@
         (mine ? '<button class="btn ghost pass-btn" id="pass-btn" type="button" title="Give up this pick. You end the season with one fewer pair of seats.">Pass this pick</button>' : "");
     }
 
+    renderPickGrid(mi);
     var hideFull = $("hide-full").checked;
     var grid = $("grid"); grid.innerHTML = "";
     state.board.forEach(function (b) {
@@ -204,6 +205,41 @@
       log.appendChild(li);
     });
     if (!state.log.length) log.innerHTML = '<li><span class="n">–</span><span class="muted">No picks yet.</span><span></span></li>';
+  }
+
+  // The fantasy-style board: one column per drafter (in draft order), one row per
+  // round, picks snake across. Built from the log's slot numbers.
+  function renderPickGrid(mi) {
+    var wrap = $("pick-grid"); if (!wrap) return;
+    var order = state.order, k = order.length; if (!k) { wrap.innerHTML = ""; return; }
+    var bySlot = {};
+    state.log.forEach(function (l) { if (l.slot !== undefined) bySlot[l.slot] = l; });
+    var rounds = Math.max(Math.ceil(state.totalPicks / k), Math.ceil((state.currentSlot + 1) / k));
+    if (state.complete) rounds = Math.ceil(state.currentSlot / k);
+    var html = '<div class="pg" style="grid-template-columns: 44px repeat(' + k + ', minmax(84px, 1fr))">';
+    html += '<div class="pg-corner"></div>';
+    order.forEach(function (p) {
+      html += '<div class="pg-head' + (p === mi ? " me" : "") + '" style="--c:' + COLORS[p % 4] + '">' + sw(p) + '<b>' + esc(name(p)) + "</b><small>" + Math.max(0, state.pairsLeft[p]) + " left" + (state.hasPrices ? " · " + money(state.due[p]) : "") + "</small></div>";
+    });
+    for (var r = 0; r < rounds; r++) {
+      html += '<div class="pg-round"><b>' + (r + 1) + "</b><small>" + (r % 2 === 0 ? "→" : "←") + "</small></div>";
+      order.forEach(function (p, col) {
+        var pos = r % 2 === 0 ? col : k - 1 - col;      // where this column's slot falls in the snake this round
+        var slot = r * k + pos, l = bySlot[slot], cls = "pg-cell", inner = "";
+        if (l && l.type === "pick") {
+          var g = gameById[l.game];
+          cls += " pick"; inner = '<span class="no">' + l.pickNo + '</span><b>' + esc(g ? g.abbr : l.game) + "</b><small>" + (g ? fmtDate(g.date).replace(/^\w+, /, "") : "") + "</small>" + (state.hasPrices && g ? '<em>' + money((state.prices[g.id] || 0) * 2) + "</em>" : "");
+        } else if (l && l.type === "pass") { cls += " pass"; inner = "<b>PASS</b>"; }
+        else if (l && l.type === "skip") { cls += " skip"; inner = "<small>used</small>"; }
+        else if (l && l.type === "out") { cls += " skip"; inner = "<small>out</small>"; }
+        else if (!state.complete && state.started && slot === state.currentSlot) { cls += " live"; inner = "<b>ON THE CLOCK</b>"; }
+        else cls += " empty";
+        html += '<div class="' + cls + '" style="--c:' + COLORS[p % 4] + '">' + inner + "</div>";
+      });
+    }
+    wrap.innerHTML = html + "</div>";
+    var live = wrap.querySelector(".pg-cell.live");
+    if (live && live.scrollIntoView && wrap.dataset.scrolled !== String(state.currentSlot)) { wrap.dataset.scrolled = String(state.currentSlot); try { live.scrollIntoView({ block: "nearest", inline: "nearest" }); } catch (e) {} }
   }
 
   function renderMine(mi) {

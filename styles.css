@@ -190,3 +190,29 @@ table.season td.d { font-family: var(--display); font-size: 1.1rem; letter-spaci
   .sb-sub { display: none; }
   .who-grid { grid-template-columns: 1fr; }
 }
+
+/* fantasy-style pick grid */
+.pg-card { padding: 14px; }
+.pg-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; }
+.pg { display: grid; gap: 6px; min-width: 100%; }
+.pg-corner { }
+.pg-head { position: sticky; top: 0; background: var(--navy-2); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px; padding: 8px 6px; text-align: center; font-size: .8rem; line-height: 1.2; }
+.pg-head b { display: block; margin-top: 2px; }
+.pg-head small { color: var(--gray); font-size: .68rem; }
+.pg-head.me { box-shadow: inset 0 0 0 1px var(--green); }
+.pg-round { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--gray); }
+.pg-round b { font-family: var(--display); font-size: 1.2rem; color: #fff; }
+.pg-round small { font-size: .7rem; }
+.pg-cell { min-height: 62px; border-radius: 10px; border: 1px solid var(--line); padding: 6px 6px 6px 10px; position: relative; display: flex; flex-direction: column; justify-content: center; background: rgba(255,255,255,.03); font-size: .8rem; }
+.pg-cell.pick { background: color-mix(in srgb, var(--c) 18%, transparent); border-color: color-mix(in srgb, var(--c) 45%, transparent); }
+.pg-cell.pick::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c); border-radius: 10px 0 0 10px; }
+.pg-cell.pick b { font-family: var(--display); font-size: 1.35rem; letter-spacing: .04em; line-height: 1; }
+.pg-cell.pick small { color: rgba(255,255,255,.75); font-size: .7rem; }
+.pg-cell.pick em { font-style: normal; color: #ffd76a; font-size: .7rem; font-weight: 700; }
+.pg-cell .no { position: absolute; top: 4px; right: 6px; font-size: .62rem; color: var(--gray); }
+.pg-cell.pass { background: rgba(229,72,77,.12); border-color: rgba(229,72,77,.4); color: #ff9a9e; font-family: var(--display); letter-spacing: .1em; align-items: center; }
+.pg-cell.skip { color: var(--gray); align-items: center; opacity: .6; }
+.pg-cell.live { background: var(--green); color: #07200a; border-color: transparent; align-items: center; text-align: center; font-family: var(--display); letter-spacing: .06em; font-size: .95rem; animation: pulse 1.6s ease-in-out infinite; }
+.pg-cell.empty { border-style: dashed; opacity: .5; }
+.games-h { margin: 6px 0 8px; }
+@media (max-width: 640px) { .pg { min-width: 520px; } .pg-cell.pick b { font-size: 1.15rem; } }
