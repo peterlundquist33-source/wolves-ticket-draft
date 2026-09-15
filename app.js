@@ -8,6 +8,8 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); };
+  // Team's pricing tier (Value → Elite) as a small colored chip.
+  var tierChip = function (g) { return g.tier ? ' <span class="tier ' + g.tier.toLowerCase() + '">' + esc(g.tier) + "</span>" : ""; };
   var gameById = {}; GAMES.forEach(function (g) { gameById[g.id] = g; });
   var fmtDate = function (iso) { var d = new Date(iso + "T12:00:00"); return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); };
   var money = function (n) { return "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); };
@@ -184,7 +186,7 @@
       card.innerHTML =
         '<div class="g-top"><div class="g-date">' + fmtDate(g.date).toUpperCase() + "<small>" + esc(g.time) + " CT</small></div>" +
         '<span class="pill ' + b.status + '">' + (b.status === "open" ? "Open" : b.status === "half" ? "2 seats left" : "Full") + "</span></div>" +
-        '<div class="g-opp"><span class="abbr">' + esc(g.abbr) + "</span>" + esc(g.opp) + "</div>" +
+        '<div class="g-opp"><span class="abbr">' + esc(g.abbr) + "</span>" + esc(g.opp) + tierChip(g) + "</div>" +
         (g.note ? '<div class="g-note">' + esc(g.note) + "</div>" : "") +
         (b.price !== null ? '<div class="g-price">' + money(b.price) + " per seat · " + money(b.price * 2) + " for the pair</div>" : (state.hasPrices ? '<div class="g-price muted">price TBD</div>' : "")) +
         '<div class="g-owners">' + b.owners.map(function (o) { return '<span class="chip">' + sw(o.person) + esc(name(o.person)) + " · " + o.seats + " seats</span>"; }).join("") + "</div>" +
@@ -254,7 +256,7 @@
         (state.hasPrices ? " Total due: " + money(state.due[mi]) + (games.some(function (x) { return x.cost === null; }) ? " so far (some prices TBD)." : ".") : "");
       games.forEach(function (x) {
         var t = document.createElement("div"); t.className = "ticket";
-        t.innerHTML = '<div class="t-date">' + fmtDate(x.game.date).toUpperCase() + " · " + esc(x.game.time) + '</div><div class="t-opp">vs ' + esc(x.game.opp) + "</div>" + (x.game.note ? '<div class="small" style="color:#556">' + esc(x.game.note) + "</div>" : "") +
+        t.innerHTML = '<div class="t-date">' + fmtDate(x.game.date).toUpperCase() + " · " + esc(x.game.time) + '</div><div class="t-opp">vs ' + esc(x.game.opp) + tierChip(x.game) + "</div>" + (x.game.note ? '<div class="small" style="color:#556">' + esc(x.game.note) + "</div>" : "") +
           (x.cost !== null ? '<div class="t-cost">' + money(x.cost) + " (" + x.seats + " × " + money(x.price) + ")</div>" : (state.hasPrices ? '<div class="t-cost muted-ink">price TBD</div>' : "")) + '<div class="t-seats">' + x.seats + " SEATS</div>";
         list.appendChild(t);
       });
@@ -276,7 +278,7 @@
     var hp = state.hasPrices;
     t.innerHTML = "<tr><th>Date</th><th>Opponent</th>" + (hp ? "<th>Per seat</th>" : "") + "<th>Who's going</th></tr>" + state.board.map(function (b) {
       var who = b.owners.length ? b.owners.map(function (o) { return '<span class="chip">' + sw(o.person) + esc(name(o.person)) + " · " + o.seats + (b.price !== null ? " · " + money(o.seats * b.price) : "") + "</span>"; }).join(" ") : '<span class="muted">—</span>';
-      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "<br><small style=\"color:#9EA2A2;font-family:Inter\">" + esc(b.game.time) + "</small></td><td><b>" + esc(b.game.opp) + "</b>" + (b.game.note ? '<br><small class="muted">' + esc(b.game.note) + "</small>" : "") + "</td>" + (hp ? "<td>" + (b.price !== null ? money(b.price) : '<span class="muted">TBD</span>') + "</td>" : "") + "<td>" + who + "</td></tr>";
+      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "<br><small style=\"color:#9EA2A2;font-family:Inter\">" + esc(b.game.time) + "</small></td><td><b>" + esc(b.game.opp) + "</b>" + tierChip(b.game) + (b.game.note ? '<br><small class="muted">' + esc(b.game.note) + "</small>" : "") + "</td>" + (hp ? "<td>" + (b.price !== null ? money(b.price) : '<span class="muted">TBD</span>') + "</td>" : "") + "<td>" + who + "</td></tr>";
     }).join("") + (hp ? "<tr><td></td><td><b>Totals due</b></td><td></td><td>" + state.participants.map(function (nm, i) { return '<span class="chip">' + sw(i) + esc(nm) + " · " + money(state.due[i]) + "</span>"; }).join(" ") + "</td></tr>" : "");
   }
 
@@ -381,7 +383,7 @@
   function renderPrices() {
     var tb = $("price-table"); if (!tb) return;
     tb.innerHTML = state.board.map(function (b) {
-      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "</td><td>" + esc(b.game.opp) + '</td><td><label class="money">$<input type="number" min="0" step="0.01" inputmode="decimal" data-price="' + b.game.id + '" value="' + (b.price === null ? "" : b.price) + '"></label></td></tr>';
+      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "</td><td>" + esc(b.game.opp) + tierChip(b.game) + '</td><td><label class="money">$<input type="number" min="0" step="0.01" inputmode="decimal" data-price="' + b.game.id + '" value="' + (b.price === null ? "" : b.price) + '"></label></td></tr>';
     }).join("");
   }
   $("save-prices").addEventListener("click", function () {

@@ -1,7 +1,7 @@
 # Wolves Family Ticket Draft
 
 Snake-draft the family's Timberwolves **Half Season Green** tickets, live, from
-four phones at once. Built for the 2026-27 package: 20 home games, 4 seats each.
+four phones at once. Built for the 2026-27 package: 20 home games (confirmed 2026-09-15), 4 seats each.
 
 **Live:** https://peterlundquist33-source.github.io/wolves-ticket-draft/
 
@@ -10,8 +10,10 @@ four phones at once. Built for the 2026-27 package: 20 home games, 4 seats each.
 - 4 drafters, snake order (1-2-3-4, 4-3-2-1, …), order shuffled in the lobby.
 - One pick = **2 seats** to one game, one pair at a time. 40 picks total, 10 each.
   Want all 4 seats to a game? Take the other pair on a later turn if it's still open.
-- Ticket prices (per seat) are optional, set under Commissioner tools in the Lobby.
-  Once set, cards show the price, My Games shows what you owe, Season shows totals.
+- Every game carries the team's pricing tier (Value $258 · Select $340 · Premier $449 ·
+  Marquee $534 · Signature $619 · Elite $683 per seat) and its face value, baked into
+  `games.js`. Cards show the price, My Games shows what you owe, Season shows totals.
+  A commissioner can override any price under Commissioner tools in the Lobby.
 - Can't make many games? **Pass** on your turn: you give up one pair of seats for the season.
 - A game closes once both seat-pairs are claimed. After the 10 regular rounds, if
   seats are still open, **extra rounds** keep the snake going (everyone eligible,

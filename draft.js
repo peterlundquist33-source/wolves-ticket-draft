@@ -123,7 +123,11 @@
     });
 
     var prices = (doc && doc.prices) || {};
-    var priceOf = function (g) { var v = prices[g.id]; return (typeof v === "number" && v >= 0) ? v : null; };
+    // Commissioner-entered prices win; otherwise the face value baked into games.js.
+    var priceOf = function (g) {
+      var v = prices[g.id]; if (typeof v === "number" && v >= 0) return v;
+      return (typeof g.price === "number" && g.price >= 0) ? g.price : null;
+    };
     board.forEach(function (b) { b.price = priceOf(b.game); });
 
     var mine = {}, due = {};
