@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// Firestore rules for the shared rizzlers-pickems project: wolves draft, wedding to-dos, pick'em.
+//
+// This site shares the Rizzlers Pick'ems Firebase project, so these rules are the
+// pick'em rules plus one collection. No user accounts, same trust model: anyone with
+// the site can write, so the rules only constrain SHAPE and SIZE of what's written.
+//
+// Deploy: Firebase console -> Firestore Database -> Rules -> paste -> Publish.
+// (Keep the pick'em blocks; they're copied here verbatim so nothing breaks.)
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- wolves family ticket draft -------------------------------------------
+    // One doc per draft: participants (4 names), order (4 indexes), started, picks.
+    match /wolvesdraft/{id} {
+      allow read: if true;
+      allow write: if request.resource.data.participants is list
+                   && request.resource.data.participants.size() == 4
+                   && request.resource.data.order is list
+                   && request.resource.data.order.size() == 4
+                   && request.resource.data.started is bool
+                   && request.resource.data.picks is list
+                   && request.resource.data.picks.size() <= 60
+                   && request.resource.data.keys().hasOnly(['participants', 'order', 'started', 'picks', 'createdAt', 'updatedAt', 'startedAt', 'resetAt']);
+      allow delete: if false;
+    }
+
+    // ---- wedding planner ----------------------------------------------------
+    // One doc per to-do. Built-in checklist items use ids builtin-<n>; added items
+    // use custom-<timestamp>. Fields: text, done, by, created, updated.
+    match /todos/{id} {
+      allow read: if true;
+      allow write: if request.resource.data.text is string
+                   && request.resource.data.text.size() <= 300
+                   && request.resource.data.done is bool
+                   && (!('by' in request.resource.data) || request.resource.data.by is string && request.resource.data.by.size() <= 40)
+                   && request.resource.data.keys().hasOnly(['text', 'done', 'by', 'created', 'updated']);
+      allow delete: if true;
+    }
+
+    // ---- Rizzlers Pick'ems (unchanged) ---------------------------------------
+    match /weeks/{week} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['week', 'games'])
+                   && request.resource.data.week is int
+                   && request.resource.data.week >= 1
+                   && request.resource.data.week <= 18
+                   && request.resource.data.games is list
+                   && request.resource.data.games.size() <= 20;
+      allow delete: if true;
+    }
+
+    match /picks/{id} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['week', 'person', 'picks'])
+                   && request.resource.data.week is int
+                   && request.resource.data.person in ['Peter', 'Dalton', 'Hunter']
+                   && request.resource.data.picks is map
+                   && request.resource.data.picks.size() <= 20;
+      allow delete: if true;
+    }
+
+    match /scores/{week} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().hasAll(['week', 'finals'])
+                   && request.resource.data.finals is map
+                   && request.resource.data.finals.size() <= 20;
+      allow delete: if true;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Wolves Family Ticket Draft</title>
+<meta name="description" content="Snake-draft the family's Timberwolves half-season tickets, live.">
+<meta name="theme-color" content="#0C2340">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="scoreboard" id="scoreboard">
+  <div class="sb-left">
+    <div class="sb-wordmark"><span class="paw" aria-hidden="true">🐺</span> WOLVES <em>FAMILY DRAFT</em></div>
+    <div class="sb-sub" id="sb-sub">2026-27 · Half Season Green · 20 games · 80 seats</div>
+  </div>
+  <div class="sb-mid" id="sb-mid">
+    <div class="sb-stat"><small>ROUND</small><b id="sb-round">–</b></div>
+    <div class="sb-stat"><small>PICK</small><b id="sb-pick">–</b></div>
+    <div class="sb-stat sb-clock"><small>ON THE CLOCK</small><b id="sb-clock">–</b></div>
+  </div>
+  <div class="sb-right">
+    <button class="who" id="who-btn" type="button" title="Switch who you are">You: <b id="who-name">—</b></button>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-view="lobby" class="active">Lobby</button>
+  <button data-view="board">Draft Board</button>
+  <button data-view="mine">My Games</button>
+  <button data-view="season">Season</button>
+</nav>
+
+<main>
+  <!-- LOBBY -->
+  <section class="view active" id="view-lobby">
+    <div class="card hero">
+      <h1>Draft night for the <span class="green">Green</span> package.</h1>
+      <p>Four of us, 20 home games, 4 seats each. Every pick is <b>2 seats</b> to a game. Want all 4 seats to one game? Take both pairs and it costs you your next turn. Snake order, so nobody gets hosed.</p>
+      <div class="who-row" id="lobby-who"></div>
+    </div>
+
+    <div class="card">
+      <h2>The four of us</h2>
+      <p class="muted">Fix the names before the draft starts. Order is shuffled; hit it again if you want a re-roll. Everyone sees the same order.</p>
+      <ol class="order-list" id="order-list"></ol>
+      <div class="btn-row">
+        <button class="btn ghost" id="edit-names" type="button">Edit names</button>
+        <button class="btn ghost" id="shuffle-btn" type="button">🎲 Shuffle order</button>
+        <button class="btn primary" id="start-btn" type="button">Start the draft</button>
+      </div>
+      <p class="muted small" id="lobby-status"></p>
+    </div>
+
+    <details class="card commish">
+      <summary>Commissioner tools</summary>
+      <p class="muted small">Only use this if the draft needs a do-over. It wipes every pick for everyone.</p>
+      <button class="btn danger" id="reset-btn" type="button">Reset the whole draft</button>
+    </details>
+  </section>
+
+  <!-- BOARD -->
+  <section class="view" id="view-board">
+    <div class="turn-banner" id="turn-banner"></div>
+    <div class="board-toolbar">
+      <div class="legend"><span class="pill open">Open</span><span class="pill half">Half claimed</span><span class="pill full">Full</span></div>
+      <label class="toggle"><input type="checkbox" id="hide-full"> Hide full games</label>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="card">
+      <h2>Draft log</h2>
+      <ol class="log" id="log"></ol>
+    </div>
+  </section>
+
+  <!-- MY GAMES -->
+  <section class="view" id="view-mine">
+    <div class="card">
+      <h2 id="mine-title">My games</h2>
+      <p class="muted" id="mine-sub"></p>
+      <div class="mine-list" id="mine-list"></div>
+    </div>
+    <div class="card">
+      <h2>Everyone's haul</h2>
+      <div class="haul" id="haul"></div>
+    </div>
+  </section>
+
+  <!-- SEASON -->
+  <section class="view" id="view-season">
+    <div class="card">
+      <h2>The season, mapped</h2>
+      <p class="muted" id="season-sub"></p>
+      <table class="season" id="season-table"></table>
+    </div>
+  </section>
+</main>
+
+<!-- pick reveal -->
+<div class="reveal" id="reveal" aria-live="polite">
+  <div class="reveal-card">
+    <div class="reveal-kicker" id="reveal-kicker">PICK #1</div>
+    <div class="reveal-who" id="reveal-who">Anna</div>
+    <div class="reveal-what" id="reveal-what">selects</div>
+    <div class="reveal-game" id="reveal-game">Lakers · Dec 16</div>
+    <div class="reveal-seats" id="reveal-seats">2 seats</div>
+  </div>
+</div>
+
+<!-- who are you -->
+<div class="modal" id="who-modal">
+  <div class="modal-card">
+    <h2>Who are you?</h2>
+    <p class="muted">No passwords, we're family. Pick your name and you're that drafter on this phone.</p>
+    <div class="who-grid" id="who-grid"></div>
+  </div>
+</div>
+
+<footer class="foot">Trust-based, no logins. If someone drafts as you, that's a family meeting, not a bug. · <a href="https://github.com/peterlundquist33-source/wolves-ticket-draft">source</a></footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/10.14.1/firebase-firestore-compat.min.js"></script>
+<script>
+/* Same Firebase project as Rizzlers Pick'ems and the wedding planner. Public
+   identifiers, not secrets; firestore.rules is what constrains writes. */
+window.FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCtUp7DYEjdE5i_Vt9oTqzpmNAgHP32xy8",
+    authDomain: "rizzlers-pickems.firebaseapp.com",
+    projectId: "rizzlers-pickems",
+    storageBucket: "rizzlers-pickems.firebasestorage.app",
+    messagingSenderId: "401907218298",
+    appId: "1:401907218298:web:795ef076067ee1926b88c3"
+  };
+</script>
+<script src="games.js"></script>
+<script src="draft.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
