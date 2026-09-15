@@ -8,6 +8,20 @@ test('snake order', () => {
   assert.strictEqual([0,1,2,3,4,5,6,7,8].map(i => D.snakeSlot([2,0,3,1], i)).join(''), '203113022');
 });
 
+test("a game's second pair can be taken on a later turn; prices roll up", () => {
+  const doc = { participants: P, order: [0,1,2,3], started: true, prices: { g0: 50, g1: 20 },
+    picks: [{ game: 'g0', person: 0, seats: 2 }, { game: 'g1', person: 1, seats: 2 }, { game: 'g2', person: 2, seats: 2 }, { game: 'g3', person: 3, seats: 2 },
+            { game: 'g0', person: 3, seats: 2 }] };   // snake: 3 picks again and takes g0's other pair
+  let s = D.derive(doc, games);
+  assert.ok(s.valid);
+  assert.strictEqual(s.onClock, 2);
+  assert.strictEqual(D.validatePick(s, 2, 'g2', 2), null);   // John already has 2 seats to g2; the other pair is still free
+  assert.strictEqual(D.validatePick(s, 2, 'g0', 2), 'That game is fully drafted.');
+  assert.strictEqual(s.due[0], 100); assert.strictEqual(s.due[3], 100); assert.strictEqual(s.due[1], 40); assert.strictEqual(s.due[2], 0);
+  assert.strictEqual(s.mine[2][0].cost, null);
+  assert.ok(s.hasPrices);
+});
+
 test('full draft with one 4-seat pick ends with every pair claimed and the picker skipped once', () => {
   const doc = { participants: P, order: [2,0,3,1], started: true, picks: [] };
   let s = D.derive(doc, games), n = 0;

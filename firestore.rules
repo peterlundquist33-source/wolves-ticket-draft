@@ -23,7 +23,8 @@ service cloud.firestore {
                    && request.resource.data.started is bool
                    && request.resource.data.picks is list
                    && request.resource.data.picks.size() <= 60
-                   && request.resource.data.keys().hasOnly(['participants', 'order', 'started', 'picks', 'createdAt', 'updatedAt', 'startedAt', 'resetAt']);
+                   && (!('prices' in request.resource.data) || request.resource.data.prices is map)
+                   && request.resource.data.keys().hasOnly(['participants', 'order', 'started', 'picks', 'prices', 'createdAt', 'updatedAt', 'startedAt', 'resetAt']);
       allow delete: if false;
     }
 

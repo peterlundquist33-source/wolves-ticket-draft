@@ -10,6 +10,7 @@
   var esc = function (s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); };
   var gameById = {}; GAMES.forEach(function (g) { gameById[g.id] = g; });
   var fmtDate = function (iso) { var d = new Date(iso + "T12:00:00"); return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }); };
+  var money = function (n) { return "$" + (Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 }); };
   var fmtTime = function (ts) { return ts ? new Date(ts).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : ""; };
 
   // ---------------------------------------------------------------- state
@@ -106,6 +107,7 @@
     renderMine(mi);
     renderSeason();
     renderWho();
+    if (!document.activeElement || !document.activeElement.hasAttribute("data-price")) renderPrices();
 
     // pick reveal for picks that arrived after we loaded
     var n = state.picks.length;
@@ -170,7 +172,6 @@
       if (hideFull && b.status === "full") return;
       var g = b.game, canPick = state.started && !state.complete && state.onClock === mi;
       var can2 = canPick && !D.validatePick(state, mi, g.id, 2);
-      var can4 = canPick && !D.validatePick(state, mi, g.id, 4);
       var card = document.createElement("article");
       card.className = "gcard " + b.status + (can2 ? " pickable" : "");
       card.dataset.game = g.id;
@@ -179,10 +180,10 @@
         '<span class="pill ' + b.status + '">' + (b.status === "open" ? "Open" : b.status === "half" ? "2 seats left" : "Full") + "</span></div>" +
         '<div class="g-opp"><span class="abbr">' + esc(g.abbr) + "</span>" + esc(g.opp) + "</div>" +
         (g.note ? '<div class="g-note">' + esc(g.note) + "</div>" : "") +
+        (b.price !== null ? '<div class="g-price">' + money(b.price) + " per seat · " + money(b.price * 2) + " for the pair</div>" : (state.hasPrices ? '<div class="g-price muted">price TBD</div>' : "")) +
         '<div class="g-owners">' + b.owners.map(function (o) { return '<span class="chip">' + sw(o.person) + esc(name(o.person)) + " · " + o.seats + " seats</span>"; }).join("") + "</div>" +
         (canPick && b.status !== "full" ? '<div class="g-actions">' +
-          '<button class="btn primary" data-pick="2" ' + (can2 ? "" : "disabled") + ">Draft 2 seats</button>" +
-          (b.status === "open" ? '<button class="btn ghost" data-pick="4" ' + (can4 ? "" : "disabled") + ' title="Uses this pick and your next one">All 4 seats</button>' : "") +
+          '<button class="btn primary" data-pick="2" ' + (can2 ? "" : "disabled") + ">" + (b.owners.some(function (o) { return o.person === mi; }) ? "Take the other 2 seats" : "Draft 2 seats") + "</button>" +
           "</div>" : "") +
         (state.complete && b.status !== "full" ? '<div class="g-actions"><button class="btn primary" data-claim="1">Claim 2 leftover seats</button></div>' : "");
       grid.appendChild(card);
@@ -207,10 +208,12 @@
     else {
       var games = state.mine[mi] || [];
       var seats = games.reduce(function (a, x) { return a + x.seats; }, 0);
-      $("mine-sub").textContent = games.length + " game" + (games.length === 1 ? "" : "s") + ", " + seats + " seats" + (state.complete ? "." : ", " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " still to make.");
+      $("mine-sub").textContent = games.length + " game" + (games.length === 1 ? "" : "s") + ", " + seats + " seats" + (state.complete ? "." : ", " + state.pairsLeft[mi] + " pick" + (state.pairsLeft[mi] === 1 ? "" : "s") + " still to make.") +
+        (state.hasPrices ? " Total due: " + money(state.due[mi]) + (games.some(function (x) { return x.cost === null; }) ? " so far (some prices TBD)." : ".") : "");
       games.forEach(function (x) {
         var t = document.createElement("div"); t.className = "ticket";
-        t.innerHTML = '<div class="t-date">' + fmtDate(x.game.date).toUpperCase() + " · " + esc(x.game.time) + '</div><div class="t-opp">vs ' + esc(x.game.opp) + "</div>" + (x.game.note ? '<div class="small" style="color:#556">' + esc(x.game.note) + "</div>" : "") + '<div class="t-seats">' + x.seats + " SEATS</div>";
+        t.innerHTML = '<div class="t-date">' + fmtDate(x.game.date).toUpperCase() + " · " + esc(x.game.time) + '</div><div class="t-opp">vs ' + esc(x.game.opp) + "</div>" + (x.game.note ? '<div class="small" style="color:#556">' + esc(x.game.note) + "</div>" : "") +
+          (x.cost !== null ? '<div class="t-cost">' + money(x.cost) + " (" + x.seats + " × " + money(x.price) + ")</div>" : (state.hasPrices ? '<div class="t-cost muted-ink">price TBD</div>' : "")) + '<div class="t-seats">' + x.seats + " SEATS</div>";
         list.appendChild(t);
       });
       if (!games.length) list.innerHTML = '<p class="muted">Nothing yet. Go draft.</p>';
@@ -220,7 +223,7 @@
       var used = state.pairsUsed[i], pct = state.perPerson ? Math.round(100 * used / state.perPerson) : 0;
       var g = state.mine[i] || [];
       var h = document.createElement("div"); h.className = "h";
-      h.innerHTML = "<b>" + sw(i) + " " + esc(nm) + '</b><div class="bar"><i style="width:' + pct + '%;background:' + COLORS[i % 4] + '"></i></div><small>' + g.length + " games · " + used * 2 + " seats · " + Math.max(0, state.pairsLeft[i]) + " picks left" + (state.passes[i] ? " · passed " + state.passes[i] : "") + "</small>";
+      h.innerHTML = "<b>" + sw(i) + " " + esc(nm) + '</b><div class="bar"><i style="width:' + pct + '%;background:' + COLORS[i % 4] + '"></i></div><small>' + g.length + " games · " + used * 2 + " seats · " + Math.max(0, state.pairsLeft[i]) + " picks left" + (state.passes[i] ? " · passed " + state.passes[i] : "") + "</small>" + (state.hasPrices ? '<div class="h-due">Due: ' + money(state.due[i]) + "</div>" : "");
       haul.appendChild(h);
     });
   }
@@ -228,10 +231,11 @@
   function renderSeason() {
     $("season-sub").textContent = state.complete ? "Final. Every game, who's going, how many seats." : "Live view. Fills in as the draft goes.";
     var t = $("season-table");
-    t.innerHTML = "<tr><th>Date</th><th>Opponent</th><th>Who's going</th></tr>" + state.board.map(function (b) {
-      var who = b.owners.length ? b.owners.map(function (o) { return '<span class="chip">' + sw(o.person) + esc(name(o.person)) + " · " + o.seats + "</span>"; }).join(" ") : '<span class="muted">—</span>';
-      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "<br><small style=\"color:#9EA2A2;font-family:Inter\">" + esc(b.game.time) + "</small></td><td><b>" + esc(b.game.opp) + "</b>" + (b.game.note ? '<br><small class="muted">' + esc(b.game.note) + "</small>" : "") + "</td><td>" + who + "</td></tr>";
-    }).join("");
+    var hp = state.hasPrices;
+    t.innerHTML = "<tr><th>Date</th><th>Opponent</th>" + (hp ? "<th>Per seat</th>" : "") + "<th>Who's going</th></tr>" + state.board.map(function (b) {
+      var who = b.owners.length ? b.owners.map(function (o) { return '<span class="chip">' + sw(o.person) + esc(name(o.person)) + " · " + o.seats + (b.price !== null ? " · " + money(o.seats * b.price) : "") + "</span>"; }).join(" ") : '<span class="muted">—</span>';
+      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "<br><small style=\"color:#9EA2A2;font-family:Inter\">" + esc(b.game.time) + "</small></td><td><b>" + esc(b.game.opp) + "</b>" + (b.game.note ? '<br><small class="muted">' + esc(b.game.note) + "</small>" : "") + "</td>" + (hp ? "<td>" + (b.price !== null ? money(b.price) : '<span class="muted">TBD</span>') + "</td>" : "") + "<td>" + who + "</td></tr>";
+    }).join("") + (hp ? "<tr><td></td><td><b>Totals due</b></td><td></td><td>" + state.participants.map(function (nm, i) { return '<span class="chip">' + sw(i) + esc(nm) + " · " + money(state.due[i]) + "</span>"; }).join(" ") + "</td></tr>" : "");
   }
 
   function renderWho() {
@@ -285,7 +289,8 @@
   $("grid").addEventListener("click", function (e) {
     var b = e.target.closest("[data-pick]"); if (!b) return;
     var gameId = b.closest(".gcard").dataset.game, seats = +b.dataset.pick, g = gameById[gameId];
-    var msg = seats === 4 ? "Take ALL 4 seats to " + g.opp + " on " + fmtDate(g.date) + "? This uses this pick and your next one." : "Draft 2 seats to " + g.opp + " on " + fmtDate(g.date) + "?";
+    var b0 = state.board.filter(function (x) { return x.game.id === gameId; })[0];
+    var msg = "Draft 2 seats to " + g.opp + " on " + fmtDate(g.date) + "?" + (b0 && b0.price !== null ? " That's " + money(b0.price * 2) + "." : "");
     if (confirm(msg)) makePick(gameId, seats);
   });
   $("grid").addEventListener("click", function (e) {
@@ -326,6 +331,22 @@
   $("start-btn").addEventListener("click", function () {
     if (state.participants.some(function (n) { return /^Person \d$/.test(n); }) && !confirm("Some names are still placeholders. Start anyway?")) return;
     if (confirm("Start the draft? Names and order lock once it starts.")) saveLobby({ started: true, startedAt: Date.now() });
+  });
+  // ticket prices (per seat), editable any time by whoever's commissioner
+  function renderPrices() {
+    var tb = $("price-table"); if (!tb) return;
+    tb.innerHTML = state.board.map(function (b) {
+      return '<tr><td class="d">' + fmtDate(b.game.date).toUpperCase() + "</td><td>" + esc(b.game.opp) + '</td><td><label class="money">$<input type="number" min="0" step="0.01" inputmode="decimal" data-price="' + b.game.id + '" value="' + (b.price === null ? "" : b.price) + '"></label></td></tr>';
+    }).join("");
+  }
+  $("save-prices").addEventListener("click", function () {
+    var prices = {};
+    document.querySelectorAll("[data-price]").forEach(function (inp) { var v = parseFloat(inp.value); if (!isNaN(v) && v >= 0) prices[inp.dataset.price] = v; });
+    saveLobby({ prices: prices }).then(function () { $("price-status").textContent = "Saved. Everyone sees the new prices."; setTimeout(function () { $("price-status").textContent = ""; }, 2500); });
+  });
+  $("fill-prices").addEventListener("click", function () {
+    var v = prompt("Set every empty price to (per seat):", ""); if (v === null) return; var n = parseFloat(v); if (isNaN(n) || n < 0) return;
+    document.querySelectorAll("[data-price]").forEach(function (inp) { if (inp.value === "") inp.value = n; });
   });
   $("reset-btn").addEventListener("click", function () {
     if (prompt('This wipes every pick for everyone. Type RESET to confirm.') !== "RESET") return;

@@ -8,9 +8,10 @@ four phones at once. Built for the 2026-27 package: 20 home games, 4 seats each.
 ## Rules
 
 - 4 drafters, snake order (1-2-3-4, 4-3-2-1, …), order shuffled in the lobby.
-- One pick = **2 seats** to one game. 40 picks total, 10 each.
-- Want all 4 seats to a game? Take "All 4 seats" on an open game. It uses this
-  pick **and your next turn** (you sit out once), so it costs two picks.
+- One pick = **2 seats** to one game, one pair at a time. 40 picks total, 10 each.
+  Want all 4 seats to a game? Take the other pair on a later turn if it's still open.
+- Ticket prices (per seat) are optional, set under Commissioner tools in the Lobby.
+  Once set, cards show the price, My Games shows what you owe, Season shows totals.
 - Can't make many games? **Pass** on your turn: you give up one pair of seats for the season.
 - A game closes once both seat-pairs are claimed. The draft ends when every pair is
   claimed or nobody has picks left; anything left over from passes is first come,
@@ -28,7 +29,7 @@ No accounts; each person picks their name on their phone.
 - `firestore.rules` — shape/size limits on the `wolvesdraft` collection.
 
 State is one Firestore document, `wolvesdraft/family-2026-27`:
-`{ participants, order, started, picks: [{game, person, seats, ts}] }`.
+`{ participants, order, started, prices?: {gameId: perSeat}, picks: [{game, person, seats, ts} | {pass} | {claim}] }`.
 Everything else (whose turn, board status, each person's games) is derived
 client-side, and picks are written in a transaction that re-validates the turn.
 

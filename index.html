@@ -41,7 +41,7 @@
   <section class="view active" id="view-lobby">
     <div class="card hero">
       <h1>Draft night for the <span class="green">Green</span> package.</h1>
-      <p>Four of us, 20 home games, 4 seats each. Every pick is <b>2 seats</b> to a game. Want all 4 seats to one game? Take both pairs and it costs you your next turn. Can't make many games? Pass a pick and someone else can grab those seats at the end. Snake order, so nobody gets hosed.</p>
+      <p>Four of us, 20 home games, 4 seats each. Every pick is <b>2 seats</b> to a game, one pair at a time. Want all 4? Come back for the other pair on a later turn if it's still open. Can't make many games? Pass a pick and someone else can grab those seats at the end. Snake order, so nobody gets hosed.</p>
       <div class="who-row" id="lobby-who"></div>
     </div>
 
@@ -60,7 +60,16 @@
 
     <details class="card commish">
       <summary>Commissioner tools</summary>
-      <p class="muted small">Only use this if the draft needs a do-over. It wipes every pick for everyone.</p>
+      <h2>Ticket prices</h2>
+      <p class="muted small">Per seat. Leave blank until you know. Once any price is in, every card, My Games and the Season tab show costs and each person's total due.</p>
+      <table class="season prices"><tbody id="price-table"></tbody></table>
+      <div class="btn-row">
+        <button class="btn ghost" id="fill-prices" type="button">Fill empties with…</button>
+        <button class="btn primary" id="save-prices" type="button">Save prices</button>
+        <span class="muted small" id="price-status"></span>
+      </div>
+      <h2 style="margin-top:22px">Danger zone</h2>
+      <p class="muted small">Only use this if the draft needs a do-over. It wipes every pick for everyone (prices stay).</p>
       <button class="btn danger" id="reset-btn" type="button">Reset the whole draft</button>
     </details>
   </section>

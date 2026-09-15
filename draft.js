@@ -6,9 +6,10 @@
  *     started: true,
  *     picks: [ { game, person, seats: 2|4, ts } ] }
  *
- * Every game has 4 seats = 2 seat-pairs. One pick = one seat-pair. A 4-seat pick
- * takes both pairs at once and costs the picker their NEXT turn too ("spend 2 of
- * your own picks"). A PASS ({pass:true}) gives up one of your seat-pairs for the
+ * Every game has 4 seats = 2 seat-pairs. One pick = one seat-pair, 2 seats at a
+ * time; you can take a game's second pair on a later turn if it's still free.
+ * (The engine still understands legacy seats:4 picks, which cost the next turn.)
+ * Optional doc.prices = { gameId: pricePerSeat } drives what everyone owes. A PASS ({pass:true}) gives up one of your seat-pairs for the
  * season: your turn is used, your allotment shrinks by one. Turns run as a snake
  * until every seat-pair is claimed or nobody has picks left. Whatever is left
  * over after that is first-come: anyone can CLAIM ({claim:true}) a free pair.
@@ -109,15 +110,21 @@
       };
     });
 
-    var mine = {};
+    var prices = (doc && doc.prices) || {};
+    var priceOf = function (g) { var v = prices[g.id]; return (typeof v === "number" && v >= 0) ? v : null; };
+    board.forEach(function (b) { b.price = priceOf(b.game); });
+
+    var mine = {}, due = {};
     participants.forEach(function (_, p) {
       mine[p] = board.filter(function (b) { return b.owners.some(function (o) { return o.person === p; }); })
-        .map(function (b) { return { game: b.game, seats: b.owners.filter(function (o) { return o.person === p; })[0].seats }; });
+        .map(function (b) { var seats = b.owners.filter(function (o) { return o.person === p; })[0].seats; return { game: b.game, seats: seats, price: b.price, cost: b.price === null ? null : seats * b.price }; });
+      due[p] = mine[p].reduce(function (a, x) { return a + (x.cost || 0); }, 0);
     });
+    var hasPrices = board.some(function (b) { return b.price !== null; });
 
     return {
       participants: participants, order: order, started: !!(doc && doc.started),
-      picks: picks, log: log, board: board, mine: mine,
+      picks: picks, log: log, board: board, mine: mine, due: due, prices: prices, hasPrices: hasPrices,
       pairsUsed: pairsUsed, passes: passes, perPerson: perPerson, pairsLeft: participants.map(function (_, p) { return pairsLeft(p); }),
       leftoverPairs: totalPairs - claimedPairs,
       onClock: onClock, round: round, pickNo: pickNo + 1, totalPicks: totalPairs,
@@ -134,7 +141,6 @@
     if (!b) return "Unknown game.";
     var pairs = seats === SEATS_PER_GAME ? 2 : 1;
     if (b.pairsFree < pairs) return pairs === 2 ? "Both seat-pairs aren't free for that game." : "That game is fully drafted.";
-    if (b.owners.some(function (o) { return o.person === person; })) return "You already have seats to that game.";
     if (state.pairsLeft[person] < pairs) return "You don't have enough picks left for that.";
     return null;
   }
