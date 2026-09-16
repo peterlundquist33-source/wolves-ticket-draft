@@ -299,7 +299,11 @@
   function showReveal(pickNo, pk) {
     var g = gameById[pk.game];
     var gf = gifFor(pickNo), img = $("reveal-gif");
-    if (gf) { img.src = gifUrl(gf); img.alt = gf.who; img.parentNode.style.display = ""; $("reveal-credit").textContent = gf.who + " · via GIPHY"; }
+    if (gf) {
+      img.parentNode.style.display = ""; img.alt = gf.who; $("reveal-credit").textContent = gf.who + " · via GIPHY";
+      img.onerror = function () { img.src = "https://media.giphy.com/media/" + gf.id + "/giphy.gif"; img.onerror = function () { img.parentNode.style.display = "none"; }; };
+      img.src = gifUrl(gf);
+    }
     else { img.removeAttribute("src"); img.parentNode.style.display = "none"; }
     preloadGif(pickNo + 1);
     $("reveal-kicker").textContent = "PICK #" + pickNo;
