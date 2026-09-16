@@ -29,6 +29,7 @@ No accounts; each person picks their name on their phone.
 - `index.html`, `styles.css`, `app.js` — the UI. Firebase compat SDK from CDN.
 - `draft.js` — the rules engine (pure functions, no DOM). `node --test test/draft.test.js` runs its tests.
 - `games.js` — the game pool (the package schedule).
+- `gifs.js` — Timberwolves GIFs (GIPHY ids) for the pick reveal; same GIF per pick number on every phone.
 - `firestore.rules` — shape/size limits on the `wolvesdraft` collection.
 
 State is one Firestore document, `wolvesdraft/family-2026-27`:

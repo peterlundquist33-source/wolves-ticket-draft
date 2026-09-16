@@ -166,8 +166,11 @@ table.season td.d { font-family: var(--display); font-size: 1.1rem; letter-spaci
 /* reveal */
 .reveal { position: fixed; inset: 0; z-index: 50; display: none; align-items: center; justify-content: center; background: rgba(4,12,24,.78); backdrop-filter: blur(4px); }
 .reveal.show { display: flex; }
-.reveal-card { text-align: center; padding: 32px 36px; border-radius: 22px; background: linear-gradient(160deg, #123a6b, #0C2340); border: 2px solid var(--green); box-shadow: 0 0 0 10px rgba(120,190,32,.15), 0 30px 80px rgba(0,0,0,.6); animation: slam .55s cubic-bezier(.2,1.4,.4,1); max-width: 92vw; }
+.reveal-card { text-align: center; padding: 32px 36px; border-radius: 22px; background: linear-gradient(160deg, #123a6b, #0C2340); border: 2px solid var(--green); box-shadow: 0 0 0 10px rgba(120,190,32,.15), 0 30px 80px rgba(0,0,0,.6); animation: slam .55s cubic-bezier(.2,1.4,.4,1); width: min(460px, 92vw); }
 @keyframes slam { 0% { transform: scale(.4) rotate(-4deg); opacity: 0; } 70% { transform: scale(1.06) rotate(1deg); opacity: 1; } 100% { transform: none; } }
+.reveal-gif { margin: -32px -36px 16px; border-radius: 16px 16px 6px 6px; overflow: hidden; background: #061a33; }
+.reveal-gif img { display: block; width: 100%; max-height: 42vh; object-fit: cover; }
+.reveal-credit { margin-top: 12px; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.45); }
 .reveal-kicker { font-size: .8rem; letter-spacing: .3em; color: #ffd76a; }
 .reveal-who { font-family: var(--display); font-size: clamp(2.6rem, 9vw, 4.4rem); line-height: 1; color: #fff; margin-top: 6px; }
 .reveal-what { color: var(--gray); font-size: .95rem; margin: 4px 0; letter-spacing: .1em; text-transform: uppercase; }

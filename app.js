@@ -290,15 +290,25 @@
 
   // ---------------------------------------------------------------- reveal + nudge
   var revealTimer = null;
+  // Same GIF for the same pick number on every phone; the next one is preloaded so it
+  // plays the instant the card slams in.
+  var GIFS = window.WOLVES_GIFS || [];
+  function gifFor(pickNo) { return GIFS.length ? GIFS[(pickNo * 7 + 3) % GIFS.length] : null; }
+  function gifUrl(gf) { return "https://media.giphy.com/media/" + gf.id + "/giphy.webp"; }
+  function preloadGif(pickNo) { var gf = gifFor(pickNo); if (gf) { var im = new Image(); im.src = gifUrl(gf); } }
   function showReveal(pickNo, pk) {
     var g = gameById[pk.game];
+    var gf = gifFor(pickNo), img = $("reveal-gif");
+    if (gf) { img.src = gifUrl(gf); img.alt = gf.who; img.parentNode.style.display = ""; $("reveal-credit").textContent = gf.who + " · via GIPHY"; }
+    else { img.removeAttribute("src"); img.parentNode.style.display = "none"; }
+    preloadGif(pickNo + 1);
     $("reveal-kicker").textContent = "PICK #" + pickNo;
     $("reveal-who").textContent = name(pk.person);
     $("reveal-what").textContent = pk.seats === 4 ? "takes the whole row" : "selects";
     $("reveal-game").textContent = g ? g.opp + " · " + fmtDate(g.date) : pk.game;
     $("reveal-seats").textContent = pk.seats + " SEATS";
     var r = $("reveal"); r.classList.add("show");
-    clearTimeout(revealTimer); revealTimer = setTimeout(function () { r.classList.remove("show"); }, 2600);
+    clearTimeout(revealTimer); revealTimer = setTimeout(function () { r.classList.remove("show"); }, gf ? 4200 : 2600);
   }
   $("reveal").addEventListener("click", function () { $("reveal").classList.remove("show"); });
 
