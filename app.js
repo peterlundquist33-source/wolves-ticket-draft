@@ -27,7 +27,15 @@
   function myIndex() { return me === null || me === "" ? null : +me; }
   // Commissioner mode: this phone drafts as whoever is on the clock (for testing,
   // or running the draft for someone who can't be there).
-  var commish = localStorage.getItem("wolves-draft-commish") === "1";
+  // Commissioner powers follow the identity, not the phone: whoever is signed in as the
+  // commissioner couple (Peter & Nicole) can draft/pass for whoever is on the clock, on any
+  // device. The toggle is per device and defaults on; it's ignored for everyone else.
+  var commishToggle = localStorage.getItem("wolves-draft-commish") !== "0";
+  var commish = false;
+  function isCommishIdentity() {
+    var mi = myIndex();
+    return mi !== null && state && /peter/i.test(String(state.participants[mi] || ""));
+  }
   function actorIndex() { return commish && state && state.started && !state.complete && state.onClock !== null ? state.onClock : myIndex(); }
   function name(i) { return (state && state.participants[i]) || DEFAULT_NAMES[i] || "?"; }
   function sw(i) { return '<span class="sw" style="background:' + COLORS[i % 4] + '"></span>'; }
@@ -95,6 +103,9 @@
   function render() {
     state = D.derive(doc, GAMES);
     var mi = myIndex();
+    commish = commishToggle && isCommishIdentity();
+    var ct = $("commish-toggle"); if (ct) { ct.checked = commishToggle; ct.disabled = !isCommishIdentity(); }
+    var cn = $("commish-note"); if (cn) cn.textContent = isCommishIdentity() ? "You're signed in as the commissioner, so this works on any phone you pick Peter & Nicole on." : "Only available when you're signed in as Peter & Nicole.";
 
     // auto-view: lobby until started, then board (unless the user chose a tab)
     if (!userPickedView) setView(state.started ? "board" : "lobby", true);
@@ -409,9 +420,8 @@
     var v = prompt("Set every empty price to (per seat):", ""); if (v === null) return; var n = parseFloat(v); if (isNaN(n) || n < 0) return;
     document.querySelectorAll("[data-price]").forEach(function (inp) { if (inp.value === "") inp.value = n; });
   });
-  $("commish-toggle").checked = commish;
   $("commish-toggle").addEventListener("change", function () {
-    commish = $("commish-toggle").checked; localStorage.setItem("wolves-draft-commish", commish ? "1" : "0"); render();
+    commishToggle = $("commish-toggle").checked; localStorage.setItem("wolves-draft-commish", commishToggle ? "1" : "0"); render();
   });
   $("reset-btn").addEventListener("click", function () {
     if (prompt('This wipes every pick for everyone. Type RESET to confirm.') !== "RESET") return;
