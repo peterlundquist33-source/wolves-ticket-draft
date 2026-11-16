@@ -1,6 +1,7 @@
 rules_version = '2';
 
-// Firestore rules for the shared rizzlers-pickems project: wolves draft, wedding to-dos, pick'em.
+// Firestore rules for the shared rizzlers-pickems project: wolves draft, wedding to-dos,
+// cousins christmas potluck, pick'em.
 //
 // This site shares the Rizzlers Pick'ems Firebase project, so these rules are the
 // pick'em rules plus one collection. No user accounts, same trust model: anyone with
@@ -38,6 +39,21 @@ service cloud.firestore {
                    && request.resource.data.done is bool
                    && (!('by' in request.resource.data) || request.resource.data.by is string && request.resource.data.by.size() <= 40)
                    && request.resource.data.keys().hasOnly(['text', 'done', 'by', 'created', 'updated']);
+      allow delete: if true;
+    }
+
+    // ---- cousins christmas potluck sign-up ------------------------------------
+    // One doc per slot. Fixed ids: <category>-<n> (appetizers-0..3, entrees-0..2,
+    // sides-0..4, desserts-0..3) — never renumber, matches the wedding to-do keying.
+    // Unclaimed = doc absent. Fields: category, name, dish, updated.
+    match /potluck/{id} {
+      allow read: if true;
+      allow write: if request.resource.data.category in ['appetizers', 'entrees', 'sides', 'desserts']
+                   && request.resource.data.name is string
+                   && request.resource.data.name.size() <= 60
+                   && request.resource.data.dish is string
+                   && request.resource.data.dish.size() <= 200
+                   && request.resource.data.keys().hasOnly(['category', 'name', 'dish', 'updated']);
       allow delete: if true;
     }
 
